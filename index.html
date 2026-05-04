@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+font-family:Arial;
+text-align:center;
+background:#eef2f7;
+}
+
+h2{
+margin-top:20px;
+}
+
+/* Seat Grid */
+
+.grid{
+display:grid;
+grid-template-columns:
+70px 70px 70px 70px 70px
+40px
+70px 70px 70px 70px 70px;
+gap:12px;
+justify-content:center;
+}
+
+/* Seat */
+
+.seat{
+width:70px;
+height:70px;
+line-height:70px;
+border-radius:10px;
+font-weight:bold;
+cursor:pointer;
+transition:0.2s;
+}
+
+.seat:hover{
+transform:scale(1.1);
+}
+
+.available{
+background:#27ae60;
+color:white;
+}
+
+.booked{
+background:#e74c3c;
+color:white;
+cursor:not-allowed;
+}
+
+.aisle{
+width:40px;
+height:70px;
+background:transparent;
+pointer-events:none;
+}
+
+/* Overlay */
+
+.overlay{
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.6);
+justify-content:center;
+align-items:center;
+z-index:1000;
+}
+
+/* Booking Form */
+
+.formBox{
+background:white;
+padding:25px;
+width:350px;
+border-radius:12px;
+box-shadow:0px 8px 20px rgba(0,0,0,0.3);
+position:relative;
+animation:popup 0.3s ease;
+}
+
+.closeBtn{
+position:absolute;
+right:12px;
+top:10px;
+cursor:pointer;
+font-size:18px;
+}
+
+/* Success Popup */
+
+.successBox{
+background:white;
+padding:25px;
+width:350px;
+border-radius:12px;
+box-shadow:0px 8px 20px rgba(0,0,0,0.3);
+text-align:center;
+animation:popup 0.3s ease;
+}
+
+.successBox h2{
+color:#27ae60;
+}
+
+.emailInfo{
+margin-top:10px;
+font-size:14px;
+color:#555;
+}
+
+/* Animation */
+
+@keyframes popup{
+0%{transform:scale(0.8);opacity:0}
+100%{transform:scale(1);opacity:1}
+}
+
+/* Inputs */
+
+input,select{
+width:90%;
+padding:8px;
+margin:6px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+/* Button */
+
+button{
+padding:10px 14px;
+background:#3498db;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+#selectMessage{
+font-weight:bold;
+margin-top:10px;
+}
+
+/* Required validation colors */
+
+input:required:invalid, select:required:invalid{
+border:2px solid #e74c3c;
+}
+
+input:required:valid, select:required:valid{
+border:2px solid #2ecc71;
+}
+
+.requiredNote{
+color:#e74c3c;
+font-size:13px;
+margin-bottom:8px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Seat Booking</h2>
+
+<p id="selectMessage">Hover a seat to see status. Click an available seat to book.</p>
+
+<p id="selectMessage">
+Select minimum <b>2 seats</b> and maximum <b>3 seats</b> to continue booking.
+</p>
+
+<div id="seatGrid" class="grid"></div>
+
+
+<!-- Booking Form -->
+
+<div id="formOverlay" class="overlay">
+
+<form id="bookingForm" class="formBox" onsubmit="confirmSeat(event)">
+
+<span class="closeBtn" onclick="closeForm()">✖</span>
+
+<h3>Book Seat <span id="seatLabel"></span></h3>
+
+<p class="requiredNote">* Required fields</p>
+
+<input id="name" placeholder="Student Name" required>
+
+<input id="roll" placeholder="Roll Number" required>
+
+<input id="email" type="email" placeholder="Student Email" required>
+
+<input id="studentPhone" placeholder="Student Phone No" required>
+
+<input id="branch" placeholder="Branch" required>
+
+<input id="guardian1Name" placeholder="Guardian 1 Name" required>
+
+<input id="guardian1Phone" placeholder="Guardian 1 Phone No" required>
+
+<input id="guardian1Email" type="email" placeholder="Guardian 1 Email" required>
+
+<input id="guardian2Name" placeholder="Guardian 2 Name (optional)">
+
+<input id="guardian2Phone" placeholder="Guardian 2 Phone (optional)">
+
+<input id="guardian2Email" type="email" placeholder="Guardian 2 Email (optional)">
+
+<input id="eventName" placeholder="Event Name" required>
+
+<select id="hallName" required>
+<option value="">Select Hall</option>
+<option>Hall A</option>
+<option>Hall B</option>
+<option>Hall C</option>
+</select>
+
+<input id="organizedBy" placeholder="Organized By" required>
+
+<button type="submit">Confirm Seat</button>
+
+</form>
+
+</div>
+
+
+<!-- Success Popup -->
+
+<div id="successPopup" class="overlay">
+
+<div class="successBox">
+
+<h2>🎉 Seat Booked Successfully</h2>
+
+<p id="successMessage"></p>
+
+<p class="emailInfo">
+Registration details have been sent to your provided email IDs.
+</p>
+
+<button onclick="closeSuccess()">OK</button>
+
+</div>
+
+</div>
+
+<script>
+
+
+let selectedSeats=[];
+
+
+/* Load seats */
+
+function loadSeats(){
+
+google.script.run.withSuccessHandler(function(data){
+
+const grid=document.getElementById("seatGrid");
+grid.innerHTML="";
+
+data.forEach(function(row){
+
+const seatID=row[0];
+const status=row[3];
+
+const columnNumber=parseInt(seatID.slice(1));
+
+/* Insert aisle after seat 5 */
+
+if(columnNumber===6){
+const aisle=document.createElement("div");
+aisle.classList.add("aisle");
+grid.appendChild(aisle);
+}
+
+const div=document.createElement("div");
+
+div.innerText=seatID;
+div.classList.add("seat");
+
+div.title="Seat "+seatID+" - "+status;
+
+if(status==="Available"){
+
+div.classList.add("available");
+
+
+
+div.onclick=function(){
+
+/* deselect seat */
+
+if(selectedSeats.includes(seatID)){
+selectedSeats = selectedSeats.filter(s => s !== seatID);
+div.style.outline="none";
+
+document.getElementById("seatLabel").innerText =
+selectedSeats.join(", ");
+
+return;
+}
+
+/* max seat limit */
+
+if(selectedSeats.length >= 3){
+alert("You can select maximum 3 seats.");
+return;
+}
+
+/* add seat */
+
+selectedSeats.push(seatID);
+
+div.style.outline="4px solid yellow";
+
+/* update label */
+
+document.getElementById("seatLabel").innerText =
+selectedSeats.join(", ");
+
+/* open form only if >=2 seats */
+
+if(selectedSeats.length >= 2){
+document.getElementById("formOverlay").style.display="flex";
+}
+
+}
+
+}else{
+
+div.classList.add("booked");
+
+}
+
+grid.appendChild(div);
+
+});
+
+}).getSeats();
+
+}
+
+
+/* Confirm seat */
+
+function confirmSeat(event){
+
+event.preventDefault();
+
+const name=document.getElementById("name").value.trim();
+const roll=document.getElementById("roll").value.trim();
+const email=document.getElementById("email").value.trim();
+const studentPhone=document.getElementById("studentPhone").value.trim();
+const branch=document.getElementById("branch").value.trim();
+
+const guardian1Name=document.getElementById("guardian1Name").value.trim();
+const guardian1Phone=document.getElementById("guardian1Phone").value.trim();
+const guardian1Email=document.getElementById("guardian1Email").value.trim();
+
+const guardian2Name=document.getElementById("guardian2Name").value.trim();
+const guardian2Phone=document.getElementById("guardian2Phone").value.trim();
+const guardian2Email=document.getElementById("guardian2Email").value.trim();
+
+const eventName=document.getElementById("eventName").value.trim();
+const hallName=document.getElementById("hallName").value.trim();
+const organizedBy=document.getElementById("organizedBy").value.trim();
+
+const rollPattern=/^[A-Za-z0-9]+$/;
+
+if(!rollPattern.test(roll)){
+alert("Roll number must contain letters and numbers only.");
+return;
+}
+
+if(selectedSeats.length === 0){
+alert("Please select at least one seat");
+return;
+}
+
+google.script.run.withSuccessHandler(function(res){
+
+if(res.status==="success"){
+
+document.getElementById("successMessage").innerText =
+// "Seat "+res.seat+" has been successfully allocated.";
+"Seats "+res.seats.join(", ")+" have been successfully allocated.";
+
+document.getElementById("successPopup").style.display="flex";
+selectedSeats = [];
+
+}else{
+
+alert(res.message);
+
+}
+
+closeForm();
+loadSeats();
+
+}).bookSeat(
+selectedSeats,
+name,
+roll,
+email,
+studentPhone,
+branch,
+guardian1Name,
+guardian1Phone,
+guardian1Email,
+guardian2Name,
+guardian2Phone,
+guardian2Email,
+eventName,
+hallName,
+organizedBy
+);
+
+}
+
+/* Close booking form */
+
+function closeForm(){
+document.getElementById("formOverlay").style.display="none";
+}
+
+/* Close success popup */
+
+function closeSuccess(){
+document.getElementById("successPopup").style.display="none";
+}
+
+/* Load seats */
+
+loadSeats();
+
+</script>
+
+</body>
+</html>

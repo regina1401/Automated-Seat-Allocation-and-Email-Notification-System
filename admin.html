@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f4f6f8;
+text-align:center;
+margin:0;
+}
+
+.container{
+max-width:1300px;
+margin:auto;
+padding:15px;
+}
+
+/* Statistics cards */
+
+.stats{
+display:flex;
+justify-content:space-around;
+margin-bottom:15px;
+}
+
+.card{
+background:white;
+padding:15px;
+border-radius:10px;
+box-shadow:0px 4px 10px rgba(0,0,0,0.1);
+width:30%;
+}
+
+/* Chart */
+
+.chartBox{
+width:320px;
+height:220px;
+margin:auto;
+}
+
+/* Table */
+
+.tableContainer{
+margin-top:15px;
+background:white;
+border-radius:10px;
+box-shadow:0px 4px 10px rgba(0,0,0,0.1);
+overflow:auto;
+max-height:350px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+font-size:12px;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:6px;
+}
+
+th{
+background:#2c3e50;
+color:white;
+position:sticky;
+top:0;
+}
+
+/* Row colors */
+
+.bookedRow{
+background:#fdecea;
+}
+
+.availableRow{
+background:#e8f8f5;
+}
+
+/* Controls */
+
+button{
+padding:8px 12px;
+margin:5px;
+background:#3498db;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+button:hover{
+background:#2980b9;
+}
+
+input{
+padding:8px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Admin Dashboard</h2>
+
+<!-- Statistics -->
+
+<div class="stats">
+
+<div class="card">
+<h3>Total Seats</h3>
+<p id="totalSeats"></p>
+</div>
+
+<div class="card">
+<h3>Booked</h3>
+<p id="bookedSeats"></p>
+</div>
+
+<div class="card">
+<h3>Available</h3>
+<p id="availableSeats"></p>
+</div>
+
+</div>
+
+<!-- Chart -->
+
+<div class="chartBox">
+<canvas id="seatChart"></canvas>
+</div>
+
+<br>
+
+<input id="searchRoll" placeholder="Search Roll Number">
+
+<button onclick="searchStudent()">Search</button>
+
+<button onclick="resetSeats()">Reset All Seats</button>
+
+<button onclick="downloadCSV()">Download Report</button>
+
+<!-- Seat Table -->
+
+<div class="tableContainer">
+
+<table id="seatTable">
+
+<thead>
+<tr>
+
+<th>Seat</th>
+<th>Status</th>
+<th>Roll</th>
+<th>Name</th>
+<th>Email</th>
+<th>Student Phone</th>
+<th>Branch</th>
+
+<th>Guardian1 Name</th>
+<th>Guardian1 Phone</th>
+<th>Guardian1 Email</th>
+
+<th>Guardian2 Name</th>
+<th>Guardian2 Phone</th>
+<th>Guardian2 Email</th>
+
+<th>Event</th>
+<th>Hall</th>
+<th>Organized By</th>
+
+</tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<script>
+
+let chart;
+
+/* Load seats */
+
+function loadSeats(){
+
+google.script.run.withSuccessHandler(function(data){
+
+const tbody=document.querySelector("#seatTable tbody");
+tbody.innerHTML="";
+
+data.forEach(function(row){
+
+const seat=row[0];
+const status=row[3];
+const roll=row[4];
+const name=row[5];
+const email=row[6];
+const studentPhone=row[7];
+const branch=row[8];
+
+const guardian1Name=row[9];
+const guardian1Phone=row[10];
+const guardian1Email=row[11];
+
+const guardian2Name=row[12];
+const guardian2Phone=row[13];
+const guardian2Email=row[14];
+
+const event=row[15];
+const hall=row[16];
+const organized=row[17];
+
+const tr=document.createElement("tr");
+
+/* Row color */
+
+if(status==="Booked"){
+tr.classList.add("bookedRow");
+}else{
+tr.classList.add("availableRow");
+}
+
+const values=[
+seat,
+status,
+roll,
+name,
+email,
+studentPhone,
+branch,
+guardian1Name,
+guardian1Phone,
+guardian1Email,
+guardian2Name,
+guardian2Phone,
+guardian2Email,
+event,
+hall,
+organized
+];
+
+values.forEach(function(val){
+
+const td=document.createElement("td");
+td.innerText=val || "";
+tr.appendChild(td);
+
+});
+
+tbody.appendChild(tr);
+
+});
+
+}).getSeats();
+
+}
+
+/* Load statistics */
+
+function loadStats(){
+
+google.script.run.withSuccessHandler(function(stats){
+
+document.getElementById("totalSeats").innerText=stats.total;
+document.getElementById("bookedSeats").innerText=stats.booked;
+document.getElementById("availableSeats").innerText=stats.available;
+
+renderChart(stats);
+
+}).getSeatStats();
+
+}
+
+/* Render chart */
+
+function renderChart(stats){
+
+const ctx=document.getElementById("seatChart");
+
+if(chart) chart.destroy();
+
+chart=new Chart(ctx,{
+type:"pie",
+data:{
+labels:["Booked","Available"],
+datasets:[{
+data:[stats.booked,stats.available],
+backgroundColor:["#e74c3c","#27ae60"]
+}]
+},
+options:{
+responsive:true,
+maintainAspectRatio:false
+}
+});
+
+}
+
+/* Search roll */
+
+function searchStudent(){
+
+const roll=document.getElementById("searchRoll").value.toLowerCase();
+
+const rows=document.querySelectorAll("#seatTable tbody tr");
+
+rows.forEach(function(row){
+
+const rollCell=row.children[2].innerText.toLowerCase();
+
+if(rollCell.includes(roll)){
+row.style.display="";
+}else{
+row.style.display="none";
+}
+
+});
+
+}
+
+/* Reset seats */
+
+function resetSeats(){
+
+if(!confirm("Reset seats?")) return;
+
+google.script.run.withSuccessHandler(function(msg){
+
+alert(msg);
+loadSeats();
+loadStats();
+
+}).resetAllSeats();
+
+}
+
+/* Download CSV */
+
+function downloadCSV(){
+
+google.script.run.withSuccessHandler(function(csv){
+
+const blob=new Blob([csv],{type:"text/csv"});
+const url=URL.createObjectURL(blob);
+
+const a=document.createElement("a");
+a.href=url;
+a.download="seat_data.csv";
+a.click();
+
+}).exportSeatData();
+
+}
+
+loadSeats();
+loadStats();
+
+</script>
+
+</body>
+</html>

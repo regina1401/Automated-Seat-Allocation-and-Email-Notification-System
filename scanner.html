@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+
+body{
+font-family:Arial;
+text-align:center;
+background:#eef2f7;
+}
+
+#reader{
+width:300px;
+margin:auto;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Event Entry Scanner</h2>
+
+<div id="reader"></div>
+
+<h3 id="result"></h3>
+
+<script>
+
+function onScanSuccess(decodedText){
+
+const data=JSON.parse(decodedText);
+
+document.getElementById("result").innerHTML=
+"Seat: "+data.seat+"<br>"+
+"Roll: "+data.roll+"<br>"+
+"Event: "+data.event;
+
+google.script.run.verifyEntry(data.roll,data.seat);
+
+}
+
+new Html5QrcodeScanner(
+"reader",
+{fps:10,qrbox:250}
+).render(onScanSuccess);
+
+</script>
+
+</body>
+</html>
